@@ -37,8 +37,8 @@ const int IN2 = 13;
 // const int IN4 = 8;
 
 // Limit Switch(es)
-const int PEGLIMA = 7;
-const int TOPLIMA = 6;
+const int TOPLIMA = 7;
+const int PEGLIMA = 6;
 const int BOTLIMA = 5;
 // const int PEGLIMB = 4;
 // const int TOPLIMB = 3;
