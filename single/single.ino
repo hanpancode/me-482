@@ -57,9 +57,7 @@ const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping mot
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
 const float MINHEIGHT = 0.56; // [m]; minimum height for starting position
 int speed = 0; // [rpm]; current operating speed
-unsigned long currentTime = 0;
-unsigned long startTime = 0;
-unsigned long duration = 10000;
+const unsigned long stagDuration = 10000;
 
 // ToF initialization/setup
 void tofInit()
@@ -208,51 +206,71 @@ void loop()
   int error = FOLLOW_DIST - distance;
   int danger = DANGER_DIST - distance;
 
-
+  repeat:
   while (digitalRead(TOPLIMA) == LOW && digitalRead(BOTLIMA) == LOW){
-    // if bar is above deadzone
+    // If bar is above deadzone
     if (error > DZ)
     {
-      // accelerate upwards
+      // Accelerate up
       if (speed <= MAXSPEED){
         speed += RATE;
       }
     }
+    // If bar is below deadzone
     else if (error < -DZ)
     {
+      // Accelerate down
       if (speed >= -MAXSPEED){
         speed -= RATE;
       }
-    }else if (error > -DZ && error < DZ){
-      
+    }
+    // If bar is within deadzone
+    else if (error > -DZ && error < DZ){ 
+      // If bar is moving up     
       if (speed > 0){
+        // Decelerate up
         speed -= BRAKERATE;
-      }else if (speed < 0){
-        speed += BRAKERATE;
-      }else{
-        speed = 0;
-        stagTime = millis();
-      while ((error > -DZ && error < DZ)&& stagTime < 5000)
-      {
-        distance tofOut();
-        error = FOLLOW_DIST - distance;
       }
-      if (stagTime > 5000){
-        if (speed <= MAXSPEED)
+      // If bar is moving down
+      else if (speed < 0){
+        // Decelerate down
+        speed += BRAKERATE;
+      }
+      // If bar is not moving
+      else{
+        // Remain still
+        speed = 0;
+        // Start timer to check for struggle
+        unsigned long stagTime = millis();
+        // As long as it remains in the deadzone and timer for still bar is less than stagnant duration
+        while ((error > -DZ && error < DZ)&& stagTime < stagDuration)
         {
-          speed += RATE;
-          while (digitalRead(TOPLIMA)== LOW)
-          {}
-          speed=0;
-          return;
+          // Keep checking the sensor distance while timer is counting
+          distance = tofOut();
+          error = FOLLOW_DIST - distance;
         }
-      }else {
-        //goto repeat
-      }  
+        // If the timer reaches the duration limit
+        if (stagTime > stagDuration){
+          // Accelerate upwards in order to help user finish rep
+          if (speed <= MAXSPEED){
+            speed += RATE;
+            // Keep going up until it hits the limit switch
+            while (digitalRead(TOPLIMA)== LOW){}
+            // Once the limit switch is hit, stop the system
+            speed=0;
+            return;
+          }
+        // If the timer does not reach duration limit, and it's outside of deadzone
+        }else {
+          // Continue with set by following and checking for distance value again
+          goto repeat;
+        }  
+      }
+    }
 
     if(distance < DANGER_DIST && distance >1)
     {
-      // stop motor
+      // TODO: stop motor
       // delay
       // if the lim switch is pressed, move up
       // if the lim switch is not pressed, go to repeat
@@ -260,7 +278,6 @@ void loop()
       return;
     }
   }
-
 
   if (speed > 0){
     up();

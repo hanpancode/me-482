@@ -45,10 +45,10 @@ const int BOTLIMA = 5;
 // const int BOTLIMB = 2;
 
 // Constant Variables
-const int FOLLOW_DIST = 100; // [mm]; distance between the bar and ToF (on the peg)
+const int FOLLOW_DIST = 150; // [mm]; distance between the bar and ToF (on the peg)
 const float DZ = 25; // [mm]; allowed tolerance movement in +/- dir
 const int DANGER_DIST = 30; // [mm]; distance that will require emergency stop
-const int MAXSPEED = 150; // [rpm]; PWM value for desired max speed 
+const int MAXSPEED = 100; // [rpm]; PWM value for desired max speed 
 const int MOTORDIAM = 10; // [mm]; shaft diameter of the motor
 const int LINEARSPEED = MOTORDIAM*PI*(MAXSPEED/60); // [mm/s]; converting MAXSPEED angular vel to linear vel
 const int RATE = 25; // [rpm]; acceleration rate for how quickly we want the motor to speed up
@@ -151,6 +151,16 @@ repeat:
     }   
   }
 
+    if(distance < DANGER_DIST && distance >1)
+  {
+    // stop motor
+    // delay
+    // if the lim switch is pressed, move up
+    // if the lim switch is not pressed, go to repeat
+    speed=0;
+    return;
+  }
+
   if (speed > 0){
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
@@ -160,16 +170,6 @@ repeat:
   }else{
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
-  }
-
-  if(distance < DANGER_DIST && distance >1)
-  {
-    // stop motor
-    // delay
-    // if the lim switch is pressed, move up
-    // if the lim switch is not pressed, go to repeat
-    speed=0;
-    return;
   }
 
   analogWrite(ENA, abs(speed));
