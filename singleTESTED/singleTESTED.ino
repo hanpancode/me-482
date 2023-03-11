@@ -51,7 +51,7 @@ const int DANGER_DIST = 30; // [mm]; distance that will require emergency stop
 const int MAXSPEED = 100; // [rpm]; PWM value for desired max speed 
 const int MOTORDIAM = 10; // [mm]; shaft diameter of the motor
 const int LINEARSPEED = MOTORDIAM*PI*(MAXSPEED/60); // [mm/s]; converting MAXSPEED angular vel to linear vel
-const int RATE = 25; // [rpm]; acceleration rate for how quickly we want the motor to speed up
+const int RATE = 50; // [rpm]; acceleration rate for how quickly we want the motor to speed up
 const int BRAKERATE = 25; // [rpm]; deceleration rate for slowing motor to stop
 const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping motor
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
@@ -162,11 +162,11 @@ repeat:
   }
 
   if (speed > 0){
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-  }else if (speed < 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
+  }else if (speed < 0){
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
   }else{
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
