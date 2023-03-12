@@ -26,7 +26,7 @@
 // VL53L4CX sensor(&DEV_I2C, A1);
 VL53L4CD sensor_left(&DEV_I2C, A1);
 //!!added another sensor (one left and one right, idk how to correctly choose the pin for it based on the 2 parameters below alex pls help)!!
-VL53L4CD sensor_right(&DEV_I2C, A1);
+VL53L4CD sensor_right(&DEV_I2C, A2);
 
 // Motor Driver A
 const int ENA = 11;
@@ -39,8 +39,8 @@ const int IN3 = 9;
 const int IN4 = 8;
 
 // Limit Switch(es)
-const int PEGLIMA = 7;
-const int TOPLIMA = 6;
+const int TOPLIMA = 7;
+const int PEGLIMA = 6;
 const int BOTLIMA = 5;
 // const int PEGLIMB = 4;
 // const int TOPLIMB = 3;
@@ -218,21 +218,21 @@ void loop()
   // }
 
   if (speed_left > 0){
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-  }else if (speed_left < 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
+  }else if (speed_left < 0){
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
   }else if (speed_left = 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
   }
     if (speed_right > 0){
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
-  }else if (speed_right < 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
+  }else if (speed_right < 0){
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
   }else if (speed_right = 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);

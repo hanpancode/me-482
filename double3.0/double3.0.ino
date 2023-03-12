@@ -33,10 +33,10 @@ const int ENA = 11;
 const int IN1 = 12;
 const int IN2 = 13;
 
-// Motor Driver B !!i un-commented these!!
-const int ENB = 10;
-const int IN3 = 9;
-const int IN4 = 8;
+// Motor Driver B
+//const int ENB = 10;
+//const int IN3 = 9;
+//const int IN4 = 8;
 
 // Limit Switch(es)
 const int TOPLIMA = 7;
@@ -226,21 +226,14 @@ void loop()
   if (speed > 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, HIGH);
   }else if (speed < 0){
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
   }else{
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, LOW);
   }
 
   analogWrite(ENA, abs(speed));
-  analogWrite(ENB, abs(speed));
   delay(5);
 }
