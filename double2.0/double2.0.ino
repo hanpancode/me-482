@@ -58,7 +58,8 @@ const int BRAKERATE = 25; // [rpm]; deceleration rate for slowing motor to stop
 const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping motor
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
 const float MINHEIGHT = 0.56; // [m]; minimum height for starting position
-int speed = 0; // [rpm]; current operating speed
+int speed_left = 0; // [rpm]; current operating speed
+int speed_right = 0; // [rpm]; current operating speed
 
 // ToF initialization/setup
 void tofInit()
@@ -165,52 +166,45 @@ void loop()
 
   int error_left = FOLLOW_DIST - distance_left;
   int error_right = FOLLOW_DIST - distance_right;
-  int error;
-  //int danger = DANGER_DIST - distance;
 
-  if (error_left < 0 && error_right < 0){
-    // case for up ?
-    error = min(error_right, error_left);
-  }
-  else if (error_left > 0 && error_right > 0){
-    // case for down ?
-    error = max (error_right, error_left);
-  }
-// !! these next 2 cases are when the bar is slightly tilted !!  
-// !! i think the best way is to send it down in this case to avoid interference of the peg lmk what u think
-  else if (error_left > 0 && error_right < 0){
-    error = error_right;
-  }
-  else if (error_left < 0 && error_right > 0){
-    error = error_left;
-  }
-  // !! final case is for when bar is tilted to dangerous degree !!
-  // !! 100 is random value we will discuss !!
-  //else if (error_left < 0 && error_right > 0 && abs(error_left - error_right) > 100){
-    // !! danger oh no !!
-    // !! i don't think this is actually needed because it is accounted for later !!
-  //}
-
-
-
-  if (error > DZ){
-    if (speed <= MAXSPEED){
-      speed += RATE;
+  if (error_left > DZ){
+    if (speed_left <= MAXSPEED){
+      speed_left += RATE;
     }
-  }else if (error < -DZ){
-    if (speed >= -MAXSPEED){
-      speed -= RATE;
+  }else if (error_left < -DZ){
+    if (speed_left >= -MAXSPEED){
+      speed_left -= RATE;
     }
-  }else if (error > -DZ && error < DZ){
-    if (speed > 0){
-      speed -= BRAKERATE;
-    }else if (speed < 0){
-      speed += BRAKERATE;
+  }else if (error_left > -DZ && error_left < DZ){
+    if (speed_left > 0){
+      speed_left -= BRAKERATE;
+    }else if (speed_left < 0){
+      speed_left += BRAKERATE;
     }else{
-      speed = 0;
+      speed_left = 0;
     }   
-  }else if (distance_left < DANGER_DIST || distance_right < DANGER_DIST){
-    speed = 0;
+  }else if (distance_left < DANGER_DIST){
+    speed_left = 0;
+  }
+
+    if (error_right > DZ){
+    if (speed_right <= MAXSPEED){
+      speed_right += RATE;
+    }
+  }else if (error_right < -DZ){
+    if (speed_right >= -MAXSPEED){
+      speed_right -= RATE;
+    }
+  }else if (error_right > -DZ && error_right < DZ){
+    if (speed_right > 0){
+      speed_right -= BRAKERATE;
+    }else if (speed_right < 0){
+      speed_right += BRAKERATE;
+    }else{
+      speed_right = 0;
+    }   
+  }else if (distance_right < DANGER_DIST){
+    speed_right = 0;
   }
   // else if (danger < 0){
   //   if (speed > 0){
@@ -223,21 +217,25 @@ void loop()
   //   }   
   // }
 
-  if (speed > 0){
+  if (speed_left > 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, HIGH);
-  }else if (speed < 0){
+  }else if (speed_left < 0){
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
-  }else{
+  }else if (speed_left = 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
-    digitalWrite(IN3, LOW);
-    digitalWrite(IN4, LOW);
+  }
+    if (speed_right > 0){
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+  }else if (speed_right < 0){
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+  }else if (speed_right = 0){
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
   }
 
   analogWrite(ENA, abs(speed));
