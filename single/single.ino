@@ -208,7 +208,7 @@ void loop()
 
   repeat:
   while (digitalRead(TOPLIMA) == LOW && digitalRead(BOTLIMA) == LOW){
-    // If bar is above deadzone
+    // STATE 1: If bar is above deadzone
     if (error > DZ)
     {
       // Accelerate up
@@ -216,7 +216,7 @@ void loop()
         speed += RATE;
       }
     }
-    // If bar is below deadzone
+    // STATE 2: If bar is below deadzone
     else if (error < -DZ)
     {
       // Accelerate down
@@ -224,7 +224,7 @@ void loop()
         speed -= RATE;
       }
     }
-    // If bar is within deadzone
+    // STATE 3: If bar is within deadzone
     else if (error > -DZ && error < DZ){ 
       // If bar is moving up     
       if (speed > 0){
@@ -268,12 +268,13 @@ void loop()
       }
     }
 
+    // STATE 4: If bar is within danger area
     if(distance < DANGER_DIST && distance >1)
     {
-      // TODO: stop motor
-      // delay
-      // if the lim switch is pressed, move up
-      // if the lim switch is not pressed, go to repeat
+      // 1. stop motor
+      // 2. delay
+      // 3. if the lim switch is pressed, move up to help user finish rep 
+      // 4. f the lim switch is not pressed, go to repeat
       speed=0;
       return;
     }
