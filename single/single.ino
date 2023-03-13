@@ -243,7 +243,7 @@ void loop()
         // Start timer to check for struggle
         unsigned long stagTime = millis();
         // As long as it remains in the deadzone and timer for still bar is less than stagnant duration
-        while ((error > -DZ && error < DZ)&& stagTime < stagDuration)
+        while ((error > -DZ && error < DZ) && stagTime < stagDuration)
         {
           // Keep checking the sensor distance while timer is counting
           distance = tofOut();
@@ -275,8 +275,43 @@ void loop()
       // 2. delay
       // 3. if the lim switch is pressed, move up to help user finish rep 
       // 4. f the lim switch is not pressed, go to repeat
-      speed=0;
-      return;
+       // If bar is moving up     
+      ///////////////////
+      if (speed > 0){
+        // Decelerate up
+        speed -= BRAKERATE;
+      }
+      // If bar is moving down
+      else if (speed < 0){
+        // Decelerate down
+        speed += BRAKERATE;
+      }
+      // If bar is not moving
+      else{
+        // Remain still
+        speed = 0;
+        // Set delay for 1 second before checking 
+        delay(1000)
+        while(distance < DANGER_DIST && distance >1)
+        {
+          distance = tofOut();
+        }
+        if (digitalRead(PEGLIMA) == HIGH){
+          // Accelerate upwards in order to help user finish rep
+          if (speed <= MAXSPEED){
+            speed += RATE;
+            // Keep going up until it hits the limit switch
+            while (digitalRead(TOPLIMA)== LOW){}
+            // Once the limit switch is hit, stop the system
+            speed=0;
+            return; 
+          }
+          // If the limit switch is not hit, and it's outside of the deadzone
+        }else{
+          // Continue with set by following and checking for distance value again
+          goto repeat;
+        }
+      }
     }
   }
 
