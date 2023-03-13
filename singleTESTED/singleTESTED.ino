@@ -57,6 +57,7 @@ const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping mot
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
 const float MINHEIGHT = 0.56; // [m]; minimum height for starting position
 int speed = 0; // [rpm]; current operating speed
+const unsigned long stagDuration = 10000;
 
 // ToF initialization/setup
 void tofInit()
@@ -121,20 +122,24 @@ void up(){
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
 }
+
 void down(){
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
 }
+
 void stop(){
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
 }
+
 void accel(){
   for (int i = 0; i < MAXSPEED; i++) {
     analogWrite(ENA, i);
     delay(5);
   }
 }
+
 void decel(){
   for (int i = speed; i >= 0; --i) {
     analogWrite(ENA, i);
@@ -179,7 +184,7 @@ repeat:
     }   
   }
 
-    if(distance < DANGER_DIST && distance >1)
+  if(distance < DANGER_DIST && distance >1)
   {
     // TODO: stop motor
     // delay
