@@ -46,9 +46,9 @@ const int IN3 = 9;
 const int IN4 = 8;
 
 // Limit Switch(es)
-const int TOPLIMA = 7;
-const int PEGLIMA = 6;
-const int BOTLIMA = 5;
+//const int TOPLIMA = 7;
+//const int PEGLIMA = 6;
+//const int BOTLIMA = 5;
 // const int PEGLIMB = 4;
 // const int TOPLIMB = 3;
 // const int BOTLIMB = 2;
@@ -56,28 +56,30 @@ const int BOTLIMA = 5;
 // Constant Variables
 const int FOLLOW_DIST = 100; // [mm]; distance between the bar and ToF (on the peg)
 const float DZ = 25; // [mm]; allowed tolerance movement in +/- dir
-const int DANGER_DIST = 30; // [mm]; distance that will require emergency stop
-const int MAXSPEED = 75; // [rpm]; PWM value for desired max speed 
+const int DANGER_DIST = 2; // [mm]; distance that will require emergency stop
+const int MAXSPEED = 50; // [rpm]; PWM value for desired max speed 
 const int MOTORDIAM = 10; // [mm]; shaft diameter of the motor
 const int LINEARSPEED = MOTORDIAM*PI*(MAXSPEED/60); // [mm/s]; converting MAXSPEED angular vel to linear vel
 const int RATE = 15; // [rpm]; acceleration rate for how quickly we want the motor to speed up
-const int BRAKERATE = 25; // [rpm]; deceleration rate for slowing motor to stop
+const int BRAKERATE = 10; // [rpm]; deceleration rate for slowing motor to stop
 const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping motor
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
 const float MINHEIGHT = 0.56; // [m]; minimum height for starting position
 int speed = 0; // [rpm]; current operating speed
+uint8_t NewDataReady = 0;
 
 /* Setup ---------------------------------------------------------------------*/
 
-void tofInit()
-{
+
+
+
+void setup(){
+  
   // Initialize serial for output.
   SerialPort.begin(115200);
   SerialPort.println("Starting...");
-
   // Initialize I2C bus.
   DEV_I2C.begin();
-
   // Configure VL53L4CD satellite component.
   sensor_left.begin();
   sensor_right.begin();
@@ -94,10 +96,9 @@ void tofInit()
   // Start Measurements
   sensor_left.VL53L4CD_StartRanging();
   sensor_right.VL53L4CD_StartRanging();
-}
 
-void motorInit(){
-  // Set all the motor control pins to outputs
+  SerialPort.println("Starting reading...");
+
   pinMode(ENA, OUTPUT);
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
@@ -112,20 +113,13 @@ void motorInit(){
 
   analogWrite(ENA, 0);  
   analogWrite(ENB, 0);
-}
-void setup(){
-  SerialPort.begin(115200);
-  SerialPort.println("Starting program...");
-  
-  motorInit();
+
   SerialPort.println("Starting motors...");
 
-  tofInit();
-  SerialPort.println("Starting reading...");
 }
 void loop()
 {
-  uint8_t NewDataReady = 0;
+  NewDataReady = 0;
   VL53L4CD_Result_t results_l;
   uint8_t status_l = 0;
   
@@ -134,9 +128,6 @@ void loop()
   do {
     status_l = sensor_left.VL53L4CD_CheckForDataReady(&NewDataReady);
   } while (!NewDataReady);
-
-  //Led on
-  
 
   if ((!status_l) && (NewDataReady != 0)) {
     // (Mandatory) Clear HW interrupt to restart measurements
@@ -151,7 +142,7 @@ void loop()
     SerialPort.println(report_l);
     distance_left = results_l.distance_mm;
   }
-  //delay(1);
+  delay(5);
 
   NewDataReady = 0;
   VL53L4CD_Result_t results_r;
@@ -182,26 +173,33 @@ do {
   int avg_dist = (distance_right + distance_left)/2;
   int diff_dist = distance_right - distance_left;
   int error = FOLLOW_DIST - avg_dist;
+  //SerialPort.println("average distance = " + avg_dist);
   //int danger = DANGER_DIST - distance;
   
   if (error > DZ){
     if (speed <= MAXSPEED){
       speed += RATE;
+      //SerialPort.println("speed increasing upward to = " + speed);
     }
   }else if (error < -DZ){
     if (speed >= -MAXSPEED){
       speed -= RATE;
+      //SerialPort.println("speed increasing downward to = " + speed);      
     }
   }else if (error > -DZ && error < DZ){
     if (speed > 0){
       speed -= BRAKERATE;
+      //SerialPort.println("speed decreasing upward to = " + speed);  
     }else if (speed < 0){
       speed += BRAKERATE;
+      //SerialPort.println("speed decreasing upward to = " + speed);  
     }else{
       speed = 0;
+      //SerialPort.println("speed is zero");  
     }   
   }else if (distance_left < DANGER_DIST || distance_right < DANGER_DIST){
     speed = 0;
+    //SerialPort.println("danger indicated, speed is zero");  
   }
   // else if (danger < 0){
   //   if (speed > 0){
