@@ -37,8 +37,8 @@ const int IN2 = 13;
 // const int IN4 = 8;
 
 // Limit Switch(es)
-const int PEGLIMA = 7;
-const int TOPLIMA = 6;
+const int TOPLIMA = 7;
+const int PEGLIMA = 6;
 const int BOTLIMA = 5;
 // const int PEGLIMB = 4;
 // const int TOPLIMB = 3;
@@ -57,6 +57,7 @@ const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping mot
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
 const float MINHEIGHT = 0.56; // [m]; minimum height for starting position
 int speed = 0; // [rpm]; current operating speed
+const unsigned long stagDuration = 10000;
 
 // ToF initialization/setup
 void tofInit()
@@ -117,10 +118,42 @@ void motorInit(){
   // analogWrite(ENB, 0);
 }
 
+void up(){
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+}
+
+void down(){
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+}
+
+void stop(){
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+}
+
+void accel(){
+  for (int i = 0; i < MAXSPEED; i++) {
+    analogWrite(ENA, i);
+    delay(5);
+  }
+}
+
+void decel(){
+  for (int i = speed; i >= 0; --i) {
+    analogWrite(ENA, i);
+    delay(5);
+  }
+}
+
 void setup()
 {
+  // Begin the serial monitor
   SerialPort.begin(115200);
   SerialPort.println("Starting program...");
+  
+  // Initialize the motors
   motorInit();
   SerialPort.println("Starting motors...");
 
@@ -151,9 +184,9 @@ repeat:
     }   
   }
 
-    if(distance < DANGER_DIST && distance >1)
+  if(distance < DANGER_DIST && distance >1)
   {
-    // stop motor
+    // TODO: stop motor
     // delay
     // if the lim switch is pressed, move up
     // if the lim switch is not pressed, go to repeat
@@ -162,14 +195,11 @@ repeat:
   }
 
   if (speed > 0){
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, HIGH);
+    up();
   }else if (speed < 0){
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, LOW);
+    down();
   }else{
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, LOW);
+    stop();
   }
 
   analogWrite(ENA, abs(speed));
