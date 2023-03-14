@@ -60,7 +60,7 @@ const int DANGER_DIST = 2; // [mm]; distance that will require emergency stop
 const int MAXSPEED = 50; // [rpm]; PWM value for desired max speed 
 const int MOTORDIAM = 10; // [mm]; shaft diameter of the motor
 const int LINEARSPEED = MOTORDIAM*PI*(MAXSPEED/60); // [mm/s]; converting MAXSPEED angular vel to linear vel
-const int RATE = 15; // [rpm]; acceleration rate for how quickly we want the motor to speed up
+const int RATE = 30; // [rpm]; acceleration rate for how quickly we want the motor to speed up
 const int BRAKERATE = 10; // [rpm]; deceleration rate for slowing motor to stop
 const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping motor
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
@@ -172,7 +172,27 @@ do {
 
   int avg_dist = (distance_right + distance_left)/2;
   int diff_dist = distance_right - distance_left;
-  int error = FOLLOW_DIST - avg_dist;
+  int error_left = FOLLOW_DIST - distance_left;
+  int error_right = FOLLOW_DIST - distance_right;
+  int error;
+  //int danger = DANGER_DIST - distance;
+
+  if (error_left < 0 && error_right < 0){
+    // case for up ?
+    error = min(error_right, error_left);
+  }
+  else if (error_left > 0 && error_right > 0){
+    // case for down ?
+    error = max (error_right, error_left);
+  }
+// !! these next 2 cases are when the bar is slightly tilted !!  
+// !! i think the best way is to send it down in this case to avoid interference of the peg lmk what u think
+  else if (error_left > 0 && error_right < 0){
+    error = error_right;
+  }
+  else if (error_left < 0 && error_right > 0){
+    error = error_left;
+  }
   //SerialPort.println("average distance = " + avg_dist);
   //int danger = DANGER_DIST - distance;
   
@@ -188,7 +208,7 @@ do {
     }
   }else if (error > -DZ && error < DZ){
     if (speed > 0){
-      speed -= BRAKERATE;
+      speed -= (BRAKERATE)/2;
       //SerialPort.println("speed decreasing upward to = " + speed);  
     }else if (speed < 0){
       speed += BRAKERATE;
