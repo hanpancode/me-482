@@ -22,11 +22,6 @@
 #define DEV_I2C Wire
 #define SerialPort Serial
 
-//#ifndef LED_BUILTIN
-//  #define LED_BUILTIN 13
-//#endif
-//#define LedPin LED_BUILTIN
-
 // Components.
 VL53L4CD sensor_left(&DEV_I2C, A1);
 VL53L4CD sensor_right(&DEV_I2C, A2);
@@ -36,22 +31,24 @@ int distance_right = 0;
 int distance_left = 0;
 
 // Motor Driver A
+//left motor
 const int ENA = 11;
 const int IN1 = 12;
 const int IN2 = 13;
-
-// Motor Driver B
+//right motor
 const int ENB = 10;
 const int IN3 = 9;
 const int IN4 = 8;
 
 // Limit Switch(es)
-//const int TOPLIMA = 7;
-//const int PEGLIMA = 6;
-//const int BOTLIMA = 5;
-// const int PEGLIMB = 4;
-// const int TOPLIMB = 3;
-// const int BOTLIMB = 2;
+//left switches
+const int TOPLIMA = 7;
+const int PEGLIMA = 6;
+const int BOTLIMA = 5;
+//right switches
+const int PEGLIMB = 4;
+const int TOPLIMB = 3;
+const int BOTLIMB = 2;
 
 // Constant Variables
 const int FOLLOW_DIST = 100; // [mm]; distance between the bar and ToF (on the peg)
@@ -67,12 +64,9 @@ const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
 const float MINHEIGHT = 0.56; // [m]; minimum height for starting position
 int speed = 0; // [rpm]; current operating speed
 uint8_t NewDataReady = 0;
+int sync_req = 70; //dist in mm that considers motors out of sync
 
-/* Setup ---------------------------------------------------------------------*/
-
-
-
-
+// system setup as user initializes exercise
 void setup(){
   
   // Initialize serial for output.
@@ -98,7 +92,7 @@ void setup(){
   sensor_right.VL53L4CD_StartRanging();
 
   SerialPort.println("Starting reading...");
-
+  //initialize both motors on the driver
   pinMode(ENA, OUTPUT);
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
@@ -116,6 +110,23 @@ void setup(){
 
   SerialPort.println("Starting motors...");
 
+  //startup movement to ease motor surging upward with influx of power
+  speed = 50;
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  analogWrite(ENA, abs(speed));
+  analogWrite(ENB, abs(speed));
+  delay(5);
+  speed = 0;
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  analogWrite(ENA, abs(speed));
+  analogWrite(ENB, abs(speed));
+  delay(1);
 }
 void loop()
 {
@@ -152,9 +163,6 @@ do {
     status_r = sensor_right.VL53L4CD_CheckForDataReady(&NewDataReady);
   } while (!NewDataReady);
 
-  //Led on
-  
-
   if ((!status_r) && (NewDataReady != 0)) {
     // (Mandatory) Clear HW interrupt to restart measurements
     sensor_right.VL53L4CD_ClearInterrupt();
@@ -185,41 +193,61 @@ do {
     // case for down ?
     error = max (error_right, error_left);
   }
-// !! these next 2 cases are when the bar is slightly tilted !!  
-// !! i think the best way is to send it down in this case to avoid interference of the peg lmk what u think
-  else if (error_left > 0 && error_right < 0){
+//bar is slightly tilted pegs are sent down to avoid interference
+  else if (error_left > 0 && error_right < 0 && diff_dist < sync_req){
     error = error_right;
   }
-  else if (error_left < 0 && error_right > 0){
+  else if (error_left < 0 && error_right > 0 && diff_dist < sync_req){
     error = error_left;
   }
-  //SerialPort.println("average distance = " + avg_dist);
+  //motor syncing
+  if (diff_dist > sync_req){
+    if (error_right > error_left){
+      //move left motor up
+      speed = 50;
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      analogWrite(ENA, abs(speed));
+      delay(diff_dist/(speed/60000));
+      speed = 0;
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      analogWrite(ENA, abs(speed));
+    }
+    else {
+      //move right motor up
+      speed = 50;
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, HIGH);
+      analogWrite(ENB, abs(speed));
+      delay(diff_dist/(speed/60000));
+      speed = 0;
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, HIGH);
+      analogWrite(ENB, abs(speed));
+    }
+  }
   //int danger = DANGER_DIST - distance;
   
+  //acceleration control
   if (error > DZ){
     if (speed <= MAXSPEED){
       speed += RATE;
-      //SerialPort.println("speed increasing upward to = " + speed);
     }
   }else if (error < -DZ){
     if (speed >= -MAXSPEED){
-      speed -= RATE;
-      //SerialPort.println("speed increasing downward to = " + speed);      
+      speed -= RATE;  
     }
   }else if (error > -DZ && error < DZ){
     if (speed > 0){
       speed -= (BRAKERATE)/2;
-      //SerialPort.println("speed decreasing upward to = " + speed);  
     }else if (speed < 0){
       speed += BRAKERATE;
-      //SerialPort.println("speed decreasing upward to = " + speed);  
     }else{
       speed = 0;
-      //SerialPort.println("speed is zero");  
     }   
   }else if (distance_left < DANGER_DIST || distance_right < DANGER_DIST){
     speed = 0;
-    //SerialPort.println("danger indicated, speed is zero");  
   }
   // else if (danger < 0){
   //   if (speed > 0){
@@ -248,7 +276,6 @@ do {
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, LOW);
   }
-  
 
   analogWrite(ENA, abs(speed));
   analogWrite(ENB, abs(speed));
