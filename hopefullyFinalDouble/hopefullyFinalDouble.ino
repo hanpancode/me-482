@@ -202,24 +202,8 @@ do {
     distance_right = results_r.distance_mm;
   }
   delay(5);
-  while (digitalRead(TOPSTOPA) == LOW || digitalRead(TOPSTOPB) == 0){
-    speed_target = 0;
-  }
-  while (digitalRead(BOTSTOPA) == LOW || digitalRead(BOTSTOPB) == 0){
-    speed_target = 0;
-  }
-  while (digitalRead(TOPLIMA) == LOW || digitalRead(TOPLIMB) == LOW){
-    speed = 0;
-    speed -= RATE;   
-  }
-  while (digitalRead(BOTLIMA) == LOW || digitalRead(BOTLIMB) == LOW){
-    speed = 0;
-    speed += RATE;
-  }  
-  while (digitalRead(BOTLIMA) == HIGH && digitalRead(BOTLIMB) == HIGH && digitalRead(TOPLIMA) == HIGH && digitalRead(TOPLIMB) == HIGH){
-    speed_target = 80;
-  }  
-  repeat:
+//add code for extra switches here
+
   int avg_dist = (distance_right + distance_left)/2;
   int diff_dist = distance_right - distance_left;
   int error_left = FOLLOW_DIST - distance_left;
@@ -242,6 +226,18 @@ do {
     else if (error_left < 0 && error_right > 0 && diff_dist < sync_req){
       error = error_left;
     }
+    while (digitalRead(TOPLIMA) == LOW || digitalRead(TOPLIMB) == LOW){
+      speed = -(error/DZ)*speed_target; 
+      SerialPort.println("Top Reached");
+    }
+    while (digitalRead(BOTLIMA) == LOW || digitalRead(BOTLIMB) == LOW){
+      speed = (error/DZ)*speed_target;
+      SerialPort.println("Bottom Reached");
+    }  
+    while (digitalRead(PEGLIMA) == LOW || digitalRead(PEGLIMB) == LOW){
+      speed = 0;
+      SerialPort.println("Implement lift assist");
+    } 
   //motor syncing
     if (diff_dist > sync_req){
       if (error_right > error_left){
@@ -269,38 +265,14 @@ do {
         analogWrite(ENB, abs(speed));
       }
     }
-  //int danger = DANGER_DIST - min(distance_right, distance_left);
   
-  //acceleration control
-  
-    if (error > DZ){
-      if (speed <= MAXSPEED){
-        speed += RATE;
-      }
-    }
-    else if (error < -DZ){
-      if (speed >= -MAXSPEED){
-        speed -= RATE;  
-      }
-    }
-      else if (speed < 0){
-      speed += BRAKERATE;
-      }
-      else{
-      speed = 0;
-    }   
-  }
-  
-  if (error > DZ){
+//speed control for normal case
+if (error > DZ){
 	if (speed > MAXSPEED){
 		speed = MAXSPEED;
 	}
 	else {
 		speed = (error/DZ)*speed_target;
-	}
-	if (abs(speed - speed_target) > 20){
-		accel_target = abs(speed_target - speed)/loop_time;
-		speed += accel_target;
 	}
 }
 else if (error < -DZ){
@@ -310,29 +282,27 @@ else if (error < -DZ){
 	else {
 		speed = (error/-DZ)*speed_target;
 	}
-	if (abs(speed - speed_target) > 20){
-		accel_target = abs(speed_target - speed)/loop_time;
-		speed -= accel_target;
-	}
 }
 else {
 	speed = 0;
 }
+//speed control for dangerously low case
     if (distance_left < DANGER_DIST || distance_right < DANGER_DIST){
-      speed = 0;
+      speed = speed_target * (error/DANGER_DIST);
     }
-        else if (error > -DZ && error < DZ){ 
+//speed control for deadzone    
+    else if (error > -DZ && error < DZ){ 
       // If bar is moving up     
       if (speed > 0){
         // Decelerate up
-        speed = (error/DZ)*speed;
-        speed -= decel_target;
+        //speed = (error/DZ)*speed;
+        speed -= BRAKERATE;
       }
       // If bar is moving down
       else if (speed < 0){
         // Decelerate down
-        speed = (error/DZ)*speed;
-        speed += decel_target;
+        //speed = (error/DZ)*speed;
+        speed += BRAKERATE;
       }
       
       // If bar is not moving 
@@ -363,7 +333,6 @@ else {
         } 
         else {
           // Continue with set by following and checking for distance value again
-          goto repeat;
         }  
       }*/
     }
@@ -390,5 +359,6 @@ if (speed > 0){
   analogWrite(ENB, abs(speed));
   delay(5);
   */
+}
 }
 
