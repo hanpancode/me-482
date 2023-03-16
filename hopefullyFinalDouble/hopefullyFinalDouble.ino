@@ -35,6 +35,7 @@ int distance_left = 0;
 const int ENA = 11;
 const int IN1 = 12;
 const int IN2 = 13;
+
 //right motor
 const int ENB = 10;
 const int IN3 = 9;
@@ -45,10 +46,15 @@ const int IN4 = 8;
 const int TOPLIMA = 7;
 const int PEGLIMA = 6;
 const int BOTLIMA = 5;
+const int BOTSTOPA = 14;
+const int TOPSTOPA = 17;
+
 //right switches
-const int PEGLIMB = 4;
-const int TOPLIMB = 3;
+const int PEGLIMB = 3;
+const int TOPLIMB = 4;
 const int BOTLIMB = 2;
+const int BOTSTOPB = 18;
+const int TOPSTOPB = 19;
 
 // Constant Variables
 const int FOLLOW_DIST = 100; // [mm]; distance between the bar and ToF (on the peg)
@@ -66,8 +72,12 @@ const unsigned long stagDuration = 10000;
 int speed = 0; // [rpm]; current operating speed
 uint8_t NewDataReady = 0;
 int sync_req = 70; //dist in mm that considers motors out of sync
-
-// system setup as user initializes exercise
+int speed_target = 80;
+int accel_target = 0;
+int loop_time = 15/1000;
+int break_target = 0;
+int decel_target = 0;
+// system setup as user initiates exercise
 void setup(){
   
   // Initialize serial for output.
@@ -111,25 +121,35 @@ void setup(){
 
   SerialPort.println("Starting motors...");
 
+  /*
   //startup movement to ease motor surging upward with influx of power
-  speed = 50;
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  analogWrite(ENA, abs(speed));
-  analogWrite(ENB, abs(speed));
-  delay(5);
-  speed = 0;
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  analogWrite(ENA, abs(speed));
-  analogWrite(ENB, abs(speed));
-  delay(1);
 
-  while (digitalRead(PEGLIMA) == HIGH || PEGLIMB == HIGH){
+  while (digitalRead(PEGLIMA) == LOW || digitalRead(PEGLIMB) == LOW){
+
+    //startup movement to ease motor surging upward with influx of power
+    speed = 50;
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    analogWrite(ENA, abs(speed));
+    analogWrite(ENB, abs(speed));
+    delay(5);
+    speed = 0;
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    analogWrite(ENA, abs(speed));
+    analogWrite(ENB, abs(speed));
+    delay(1);
+
+  //motor sync to get pegs in line before squat
+  
+  }
+  */
+
+  while (digitalRead(PEGLIMA) == LOW || digitalRead(PEGLIMB) == LOW){
     delay(10); // Waiting as long as the limit switch is pressed; continue with code when limit switch releases
   }
 }
@@ -182,6 +202,23 @@ do {
     distance_right = results_r.distance_mm;
   }
   delay(5);
+  while (digitalRead(TOPSTOPA) == LOW || digitalRead(TOPSTOPB) == 0){
+    speed_target = 0;
+  }
+  while (digitalRead(BOTSTOPA) == LOW || digitalRead(BOTSTOPB) == 0){
+    speed_target = 0;
+  }
+  while (digitalRead(TOPLIMA) == LOW || digitalRead(TOPLIMB) == LOW){
+    speed = 0;
+    speed -= RATE;   
+  }
+  while (digitalRead(BOTLIMA) == LOW || digitalRead(BOTLIMB) == LOW){
+    speed = 0;
+    speed += RATE;
+  }  
+  while (digitalRead(BOTLIMA) == HIGH && digitalRead(BOTLIMB) == HIGH && digitalRead(TOPLIMA) == HIGH && digitalRead(TOPLIMB) == HIGH){
+    speed_target = 80;
+  }  
   repeat:
   int avg_dist = (distance_right + distance_left)/2;
   int diff_dist = distance_right - distance_left;
@@ -189,7 +226,7 @@ do {
   int error_right = FOLLOW_DIST - distance_right;
   int error;
   //int danger = DANGER_DIST - distance;
-  while (digitalRead(BOTLIMA) == LOW && digitalRead(digitalRead(TOPLIMA)) == LOW && digitalRead(BOTLIMB) == LOW && digitalRead(TOPLIMB) == LOW){
+  while (digitalRead(BOTLIMA) == HIGH && digitalRead(TOPLIMA) == HIGH && digitalRead(BOTLIMB) == HIGH && digitalRead(TOPLIMB) == HIGH){
     if (error_left < 0 && error_right < 0){
       // case for up ?
       error = min(error_right, error_left);
@@ -213,7 +250,7 @@ do {
         digitalWrite(IN1, LOW);
         digitalWrite(IN2, HIGH);
         analogWrite(ENA, abs(speed));
-        delay(diff_dist/(speed/60000));
+        delay(diff_dist/(speed/60000)+5);
         speed = 0;
         digitalWrite(IN1, LOW);
         digitalWrite(IN2, HIGH);
@@ -232,9 +269,10 @@ do {
         analogWrite(ENB, abs(speed));
       }
     }
-  //int danger = DANGER_DIST - distance;
+  //int danger = DANGER_DIST - min(distance_right, distance_left);
   
   //acceleration control
+  
     if (error > DZ){
       if (speed <= MAXSPEED){
         speed += RATE;
@@ -252,22 +290,53 @@ do {
       speed = 0;
     }   
   }
-    else if (distance_left < DANGER_DIST || distance_right < DANGER_DIST){
+  
+  if (error > DZ){
+	if (speed > MAXSPEED){
+		speed = MAXSPEED;
+	}
+	else {
+		speed = (error/DZ)*speed_target;
+	}
+	if (abs(speed - speed_target) > 20){
+		accel_target = abs(speed_target - speed)/loop_time;
+		speed += accel_target;
+	}
+}
+else if (error < -DZ){
+	if (speed < -MAXSPEED){
+		speed = -MAXSPEED;
+	}
+	else {
+		speed = (error/-DZ)*speed_target;
+	}
+	if (abs(speed - speed_target) > 20){
+		accel_target = abs(speed_target - speed)/loop_time;
+		speed -= accel_target;
+	}
+}
+else {
+	speed = 0;
+}
+    if (distance_left < DANGER_DIST || distance_right < DANGER_DIST){
       speed = 0;
     }
         else if (error > -DZ && error < DZ){ 
       // If bar is moving up     
       if (speed > 0){
         // Decelerate up
-        speed -= BRAKERATE;
+        speed = (error/DZ)*speed;
+        speed -= decel_target;
       }
       // If bar is moving down
       else if (speed < 0){
         // Decelerate down
-        speed += BRAKERATE;
+        speed = (error/DZ)*speed;
+        speed += decel_target;
       }
-      // If bar is not moving
-      else{
+      
+      // If bar is not moving 
+      /*else{
         // Remain still
         speed = 0;
         // Start timer to check for struggle
@@ -276,7 +345,7 @@ do {
         while ((error > -DZ && error < DZ) && stagTime < stagDuration)
         {
           // Keep checking the sensor distance while timer is counting
-          error = max (error_lef, error_right);
+          error = max (error_left, error_right);
         }
         // If the timer reaches the duration limit
         if (stagTime > stagDuration){
@@ -291,30 +360,15 @@ do {
             return;
           }
         // If the timer does not reach duration limit, and it's outside of deadzone
-        }else {
+        } 
+        else {
           // Continue with set by following and checking for distance value again
           goto repeat;
         }  
-      }
+      }*/
     }
-    
-  // else if (danger < 0){
-  //   if (speed > 0){
-  //     speed -= ESTOPRATE;
-  //   }else if (speed < 0){
-  //     speed += ESTOPRATE;
-  //   }else{
-  //     speed = 0;
-  //     return;
-  //   }   
-  // }
-  }
-  while (digitalRead(digitalRead(digitalRead(TOPLIMA))) == HIGH || digitalRead(TOPLIMB) == HIGH){
-    speed = 0;   
-  }
-  while (digitalRead(BOTLIMA) == 0 || digitalRead(BOTLIMB) == 0){
-    speed = 0;
-  }  
+
+/*
 if (speed > 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
@@ -335,4 +389,6 @@ if (speed > 0){
   analogWrite(ENA, abs(speed));
   analogWrite(ENB, abs(speed));
   delay(5);
+  */
 }
+
