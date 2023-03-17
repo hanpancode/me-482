@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <ezButton.h>
 
 #define DEV_I2C Wire
 #define SerialPort Serial
@@ -42,28 +43,21 @@ const int IN3 = 9;
 const int IN4 = 8;
 
 // Limit Switch(es)
-//left switches
-const int TOPLIMA = 7;
-const int PEGLIMA = 6;
-const int BOTLIMA = 5;
-const int BOTSTOPA = 14;
-const int TOPSTOPA = 17;
-
-//right switches
-const int PEGLIMB = 3;
-const int TOPLIMB = 4;
-const int BOTLIMB = 2;
-const int BOTSTOPB = 18;
-const int TOPSTOPB = 19;
+ezButton PEGLIMA(5);
+ezButton PEGLIMB(6);
+ezButton TOPLIMA(7);
+ezButton TOPLIMB(2);
+ezButton BOTLIMB(4);
+ezButton BOTLIMA(3);
 
 // Constant Variables
 const int FOLLOW_DIST = 100; // [mm]; distance between the bar and ToF (on the peg)
 const float DZ = 25; // [mm]; allowed tolerance movement in +/- dir
 const int DANGER_DIST = 2; // [mm]; distance that will require emergency stop
-const int MAXSPEED = 50; // [rpm]; PWM value for desired max speed 
+const int MAXSPEED = 30; // [rpm]; PWM value for desired max speed 
 const int MOTORDIAM = 10; // [mm]; shaft diameter of the motor
 const int LINEARSPEED = MOTORDIAM*PI*(MAXSPEED/60); // [mm/s]; converting MAXSPEED angular vel to linear vel
-const int RATE = 30; // [rpm]; acceleration rate for how quickly we want the motor to speed up
+const int RATE = 50; // [rpm]; acceleration rate for how quickly we want the motor to speed up
 const int BRAKERATE = 10; // [rpm]; deceleration rate for slowing motor to stop
 const int ESTOPRATE = 50; // [rpm]; deceleration rate for emergency stopping motor
 const float MAXHEIGHT = 1.75; // [m]; maximum height for starting position
@@ -72,7 +66,7 @@ const unsigned long stagDuration = 10000;
 int speed = 0; // [rpm]; current operating speed
 uint8_t NewDataReady = 0;
 int sync_req = 70; //dist in mm that considers motors out of sync
-int speed_target = 80;
+int speed_target = 20;
 int accel_target = 0;
 int loop_time = 15/1000;
 int break_target = 0;
@@ -120,6 +114,16 @@ void setup(){
   analogWrite(ENB, 0);
 
   SerialPort.println("Starting motors...");
+  
+  //initialize limit switches
+  PEGLIMA.setDebounceTime(50);  // set debounce time to 50 milliseconds
+  PEGLIMB.setDebounceTime(50);
+  TOPLIMA.setDebounceTime(50);
+  TOPLIMB.setDebounceTime(50);
+  BOTLIMA.setDebounceTime(50);
+  BOTLIMB.setDebounceTime(50);
+
+
 
   /*
   //startup movement to ease motor surging upward with influx of power
@@ -149,23 +153,26 @@ void setup(){
   }
   */
 
-  while (digitalRead(PEGLIMA) == LOW || digitalRead(PEGLIMB) == LOW){
-    delay(10); // Waiting as long as the limit switch is pressed; continue with code when limit switch releases
-  }
+  /*int pegLIMAstate = PEGLIMA.getState();
+  int pegLIMBstate = PEGLIMB.getState();
+  while (pegLIMAstate == LOW || pegLIMBstate == LOW){
+    delay(10);
+  }*/
 }
 void loop()
 {
-  NewDataReady = 0;
+
+  int NewDataReady_left = 0;
   VL53L4CD_Result_t results_l;
   uint8_t status_l = 0;
   
   char report_l[64];
   
   do {
-    status_l = sensor_left.VL53L4CD_CheckForDataReady(&NewDataReady);
-  } while (!NewDataReady);
+    status_l = sensor_left.VL53L4CD_CheckForDataReady(&NewDataReady_left);
+  } while (!NewDataReady_left);
 
-  if ((!status_l) && (NewDataReady != 0)) {
+  if ((!status_l) && (NewDataReady_left != 0)) {
     // (Mandatory) Clear HW interrupt to restart measurements
     sensor_left.VL53L4CD_ClearInterrupt();
 
@@ -180,7 +187,7 @@ void loop()
   }
   delay(5);
 
-  NewDataReady = 0;
+  int NewDataReady = 0;
   VL53L4CD_Result_t results_r;
   uint8_t status_r = 0;
   char report_r[64];
@@ -209,8 +216,8 @@ do {
   int error_left = FOLLOW_DIST - distance_left;
   int error_right = FOLLOW_DIST - distance_right;
   int error;
+
   //int danger = DANGER_DIST - distance;
-  while (digitalRead(BOTLIMA) == HIGH && digitalRead(TOPLIMA) == HIGH && digitalRead(BOTLIMB) == HIGH && digitalRead(TOPLIMB) == HIGH){
     if (error_left < 0 && error_right < 0){
       // case for up ?
       error = min(error_right, error_left);
@@ -226,19 +233,27 @@ do {
     else if (error_left < 0 && error_right > 0 && diff_dist < sync_req){
       error = error_left;
     }
-    while (digitalRead(TOPLIMA) == LOW || digitalRead(TOPLIMB) == LOW){
-      speed = -(error/DZ)*speed_target; 
-      SerialPort.println("Top Reached");
-    }
-    while (digitalRead(BOTLIMA) == LOW || digitalRead(BOTLIMB) == LOW){
-      speed = (error/DZ)*speed_target;
-      SerialPort.println("Bottom Reached");
-    }  
-    while (digitalRead(PEGLIMA) == LOW || digitalRead(PEGLIMB) == LOW){
+  TOPLIMA.loop();
+  TOPLIMB.loop();
+  PEGLIMA.loop();
+  PEGLIMB.loop();
+  BOTLIMA.loop();
+  BOTLIMB.loop();
+
+    if (TOPLIMA.isPressed() || TOPLIMB.isPressed()) {
       speed = 0;
-      SerialPort.println("Implement lift assist");
+      speed -=RATE; 
+    }
+    if (BOTLIMA.isPressed() || BOTLIMB.isPressed()) {
+      
+      SerialPort.println("bottom");
+      speed += RATE;
+    }  
+    if (PEGLIMA.isPressed() || PEGLIMB.isPressed()) {
+      speed = 0;
     } 
   //motor syncing
+  /*
     if (diff_dist > sync_req){
       if (error_right > error_left){
         //move left motor up
@@ -265,30 +280,28 @@ do {
         analogWrite(ENB, abs(speed));
       }
     }
+    */
   
 //speed control for normal case
 if (error > DZ){
-	if (speed > MAXSPEED){
-		speed = MAXSPEED;
-	}
-	else {
-		speed = (error/DZ)*speed_target;
-	}
-}
-else if (error < -DZ){
-	if (speed < -MAXSPEED){
-		speed = -MAXSPEED;
-	}
-	else {
-		speed = (error/-DZ)*speed_target;
-	}
-}
-else {
-	speed = 0;
-}
+      if (speed <= MAXSPEED){
+        speed += RATE;
+      }
+    }
+    else if (error < -DZ){
+      if (speed >= -MAXSPEED){
+        speed -= RATE;  
+      }
+    }
+      else if (speed < 0){
+      speed += BRAKERATE;
+      }
+      else{
+      speed = 0;
+    }   
 //speed control for dangerously low case
     if (distance_left < DANGER_DIST || distance_right < DANGER_DIST){
-      speed = speed_target * (error/DANGER_DIST);
+      speed = 0;
     }
 //speed control for deadzone    
     else if (error > -DZ && error < DZ){ 
@@ -337,7 +350,7 @@ else {
       }*/
     }
 
-/*
+
 if (speed > 0){
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, HIGH);
@@ -358,7 +371,7 @@ if (speed > 0){
   analogWrite(ENA, abs(speed));
   analogWrite(ENB, abs(speed));
   delay(5);
-  */
-}
+
+
 }
 
